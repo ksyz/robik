@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # NetBSD.sk bot
-# $Id$
+# $Id: robik.pl 34 2007-06-03 11:02:03Z lkundrak $
 
 use warnings;
 use strict;
@@ -8,11 +8,14 @@ use config;
 
 use Net::IRC;
 use POSIX;
-use Weather::Underground;
+#use Weather::Underground;
+		
+open(my $LOG, ">>".$ARGV[0]) && printf("Logfile is: ".$ARGV[0]."\n");
 
 my $Ubiq = $config::Ubiqs[0];
 my $Revi = $config::Revis[0];
 my $me = $config::nicks[0];
+my $prefix = $config::prefix;
 my $buddy = $config::buddies[0];
 my $degug = $config::degug;
 
@@ -120,26 +123,29 @@ sub command
 {
 	$_ = shift;
 
-	/^wtf\s+(.*)/ and return wtf ($1);
-	/^version/ and return '$Revision$';
-	/^pocasie\s+(.*)/ and return pocasie ($1);
-	/^break\s+(.*)/ and return break ($1);
-	/^pocasie/ and return
-		pocasie ('Brno, Czech Republic').
-		pocasie ('Bratislava, Slovakia');
+#	/^wtf\s+(.*)/ and return wtf ($1);
+#	/^version/ and return '$Revision: 34 $';
+#	/^pocasie\s+(.*)/ and return pocasie ($1);
+#	/^break\s+(.*)/ and return break ($1);
+#	/^pocasie/ and return
+#		pocasie ('Brno, Czech Republic').
+#		pocasie ('Bratislava, Slovakia');
 #	/^join\s+(\S+)$/ and return $conn->join ($1);
 #	/^part\s+(\S+)\s*(\S*)$/ and return $conn->part ("$1 $2");
 #	/^quit\s+(\S*)$/ and return $conn->quit ("$1 $2");
 	/^say\s+(\S+)\s*(.*)$/ and return $conn->privmsg ($1, $2);
 
-	my @odzdrav = ('ahoj', 'kwik', 'kwak', 'kwok', 'mnau',
-		'cau', 'zbohom', 'Dobry den prajem!');
+	/(time|date)/ and return localtime(time);
+
+	my @odzdrav = ('ahoj', 'cau', 'Dobry den prajem!', "Ja pierdole!", 
+		"Hello World!", "Nazdar", "Skap!", "Dzien dobry", 
+		"Dzień dobry", "ciao", "cześć", "czesc");
 
 	foreach my $pozdrav (@odzdrav) {
-		/$pozdrav/ and return $odzdrav[rand(@odzdrav)];
+		/$pozdrav/i and return $odzdrav[rand(@odzdrav)];
 	}
 
-	'Bad command or filename.';
+#	'Bad command or filename.';
 }
 
 sub answer
@@ -158,6 +164,7 @@ sub answer
 
 sub msg
 {
+	logit(@_);
 	my ($conn, $event) = @_;
 	my ($message) = $event->args;
 	my ($to) = $event->to;
@@ -173,9 +180,12 @@ sub msg
 	if ($to eq $me) {
 		$response = command ($_);
 	} else {
-		/^$me(:\s*)?(.*)/ and $response = command ($2);
+		if (/^$me(?::\s*)?(.*)/ || /^$prefix(.*)/) {
+			$response = command ($1);
+		}
 	}
 
+=pod
 	if (/(.*), ani srnky netusia co \'([^\']+)\'/) {
 		my ($caller, $arg) = ($1, $2);
 		my $wtf = wtf ($arg);
@@ -190,19 +200,20 @@ sub msg
 		}
 	}
 
-	if (/\ (\!|\?)/ and $from eq "pyxel") {
+	if (/\ (\!|\?)$/) {
 		unless ($to eq $me) {
- 			answer ($to, $from, "Pyxel!");
-			$conn->kick ($to, $from, 'pyxel');
+ 			answer ($to, $from, "Pis slusne!");
+			$conn->kick ($to, $from, "medzera pred '!' a '?' nepatri!");
 		}
 	}
 
 	if (/(youtube|video.google.com|swf)/i) {
 		unless ($to eq $me) {
  			answer ($to, $from, "Skus si to s flashom rozmysliet");
-			$conn->kick ($to, $from, 'flash');
+			#$conn->kick ($to, $from, 'flash');
 		}
 	}
+
 
 	if ($pyxel_new and not $pyxel_chan) {
 		$pyxel_chan = $to;
@@ -216,7 +227,7 @@ sub msg
 			$pyxel_new = $pyxel_chan = undef;
 		}
 	}
-
+=cut
 	answer ($to, $from, $response);
 }
 
@@ -235,9 +246,8 @@ sub logit
 	if ($degug) {
 		print $logline;
 	} else {
-		open (LOG, '>>/tmp/robik.log');
-		print LOG $logline;
-		close (LOG);
+		print $LOG $logline;
+#		close (LOG);
 	}
 }
 
